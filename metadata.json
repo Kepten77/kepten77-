@@ -1,0 +1,6 @@
+{
+  "name": "Дневник СД1",
+  "description": "Android-приложение на русском языке под названием \"Дневник СД1\" (Type 1 Diabetes Diary).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
