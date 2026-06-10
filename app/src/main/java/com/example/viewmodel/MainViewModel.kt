@@ -140,6 +140,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }.stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = 0.0)
 
     val dbItems = repository.allBgRecords.stateIn(scope = viewModelScope, started = SharingStarted.WhileSubscribed(5000), initialValue = emptyList())
+
+    val footballBgRecords: StateFlow<List<BgRecord>> = repository.footballBgRecords.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val footballMealRecords: StateFlow<List<MealRecord>> = repository.footballMealRecords.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
+    val footballInsulinRecords: StateFlow<List<InsulinRecord>> = repository.footballInsulinRecords.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 }
 
 data class UkAnalysisResult(

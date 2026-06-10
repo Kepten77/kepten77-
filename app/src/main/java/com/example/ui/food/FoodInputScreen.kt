@@ -46,6 +46,13 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
     var bgInput by remember { mutableStateOf("") }
     var glucoInput by remember { mutableStateOf("") }
     
+    var selectedScenario by remember { mutableStateOf("regular") }
+    
+    // Auto default/adjust based on global football state
+    LaunchedEffect(isFootball) {
+        selectedScenario = if (isFootball) "football_active" else "regular"
+    }
+
     // Auto populate xDrip value but allow typing/overriding completely
     LaunchedEffect(latestBgState) {
         if (latestBgState != null && bgInput.isEmpty()) {
@@ -70,11 +77,7 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
         else -> ukResult.ukNight
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(McDarkStone)
-    ) {
+    MinecraftBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -123,6 +126,52 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
                             Text(
                                 text = "[$label]",
                                 color = if (isSelected) McGold else Color.Gray,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Scenario selection in full pixel art segmented box
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "СЦЕНАРИЙ ЗАПИСИ (СПОРТ / ОБЫЧНЫЙ):",
+                    fontSize = 11.sp,
+                    color = Color.LightGray,
+                    fontFamily = FontFamily.Monospace
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.Black)
+                        .padding(2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    val scenarios = listOf(
+                        "regular" to "ОБЫЧНЫЙ",
+                        "football_active" to "⚔️ ИГРА / СТАРТ",
+                        "football_control" to "🛡️ КОНТРОЛЬ"
+                    )
+                    scenarios.forEach { (scen, label) ->
+                        val isSelected = selectedScenario == scen
+                        val bgCol = if (isSelected) {
+                            if (scen == "regular") McDirt else if (scen == "football_active") McRedstone else McGrass
+                        } else Color.Transparent
+                        
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { selectedScenario = scen }
+                                .background(bgCol)
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                color = if (isSelected) McWhite else Color.Gray,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
@@ -313,7 +362,7 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
                                 bgValue = glucoVal,
                                 direction = "РУЧНОЙ",
                                 isFromXdrip = false,
-                                scenario = if (isFootball) "football" else "regular"
+                                scenario = selectedScenario
                             )
                             mainViewModel.repository.insertBgRecord(glucoRecord)
                         }
@@ -332,7 +381,7 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
                                 bgBefore = effectiveBgBefore,
                                 eventType = selectedEventType, // "MEAL" or "SNACK"
                                 isBalanced = false, // analyzed inside ViewModel automatically via keywords
-                                scenario = if (isFootball) "football" else "regular"
+                                scenario = selectedScenario
                             )
                             mainViewModel.repository.insertMealRecord(record)
                         }
@@ -346,7 +395,7 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
                                 insulinType = insType,
                                 dose = doseVal,
                                 primeDose = 1.0, // Obligatory 1 unit mechanical wastage cartridge prime
-                                scenario = if (isFootball) "football" else "regular"
+                                scenario = selectedScenario
                             )
                             mainViewModel.repository.insertInsulinRecord(record)
                         }

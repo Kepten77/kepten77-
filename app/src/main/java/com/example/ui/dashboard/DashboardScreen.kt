@@ -66,10 +66,8 @@ fun DashboardScreen(
         Modifier.fillMaxSize()
     }
 
-    Box(
-        modifier = Modifier
-            .background(McDarkStone)
-            .then(borderModifier)
+    MinecraftBackground(
+        modifier = borderModifier
     ) {
         LazyColumn(
             modifier = Modifier
@@ -116,13 +114,23 @@ fun DashboardScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text(
-                                    text = textValue,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = textColor,
-                                    fontFamily = FontFamily.Monospace
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (isFootball) {
+                                        Text(
+                                            text = "⚔️",
+                                            fontSize = 15.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            modifier = Modifier.padding(end = 2.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = textValue,
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textColor,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
                                 Text(
                                     text = subText,
                                     fontSize = 9.sp,
@@ -132,56 +140,6 @@ fun DashboardScreen(
                                 )
                             }
                         }
-                    }
-                }
-            }
-
-            // Блок 5 (Режим "Футбол")
-            item {
-                McSlotItem(
-                    borderColor = if (isFootball) McRedstone else Color.Black,
-                    backgroundColor = if (isFootball) Color(0xFF6B1B1B) else Color(0xFF383838)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { mainViewModel.toggleFootballMode() }
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (isFootball) "⚔️ " else "🛡️ ",
-                                fontSize = 24.sp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text(
-                                    text = "РЕЖИМ ФУТБОЛ",
-                                    fontSize = 15.sp,
-                                    color = if (isFootball) McGold else McWhite,
-                                    fontWeight = FontWeight.Bold,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                                Text(
-                                    text = if (isFootball) "АКТИВЕН (МЕТКА scenario: football)" else "ВЫКЛЮЧЕН",
-                                    fontSize = 11.sp,
-                                    color = if (isFootball) McRedstone else Color.LightGray,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            }
-                        }
-                        Switch(
-                            checked = isFootball,
-                            onCheckedChange = { mainViewModel.toggleFootballMode() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = McRedstone,
-                                checkedTrackColor = Color.Black,
-                                uncheckedThumbColor = McStone,
-                                uncheckedTrackColor = Color.DarkGray
-                            )
-                        )
                     }
                 }
             }
@@ -351,117 +309,11 @@ fun DashboardScreen(
                 }
             }
 
-            // Football Chronic separate log at bottom if scenario "football" exists in the list
-            val footballRecords = stats.bgRecords.filter { it.scenario == "football" }
-            if (footballRecords.isNotEmpty() || isFootball) {
-                item {
-                    Column {
-                        BlockHeader("СПОРТИВНАЯ ХРОНИКА (FOOTBALL)")
-                        McSlotItem(borderColor = McRedstone, backgroundColor = Color(0xFF2A1C1C)) {
-                            Column(modifier = Modifier.padding(6.dp)) {
-                                if (footballRecords.isEmpty()) {
-                                    Text(
-                                        text = "НЕТ РЕЗЕРВНЫХ ЗАПИСЕЙ В ТРЕНИРОВКЕ",
-                                        fontSize = 11.sp,
-                                        color = Color.LightGray,
-                                        fontFamily = FontFamily.Monospace
-                                    )
-                                } else {
-                                    footballRecords.take(5).forEach { record ->
-                                        val timeStr = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(record.timestamp))
-                                        Text(
-                                            text = "$timeStr - ЗАМЕР: ${String.format(Locale.US, "%.1f", record.bgValue)} ммоль/л (${record.direction})",
-                                            fontSize = 11.sp,
-                                            color = getBgColorCode(record.bgValue),
-                                            fontFamily = FontFamily.Monospace
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ВОСКРЕСНЫЙ РИТУАЛ (System Actions)
-            item {
-                Column {
-                    BlockHeader("ВОСКРЕСНЫЙ РИТУАЛ")
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        McPixelButton(
-                            text = "ВЫГРУЗИТЬ КАРТУ",
-                            onClick = {
-                                coroutineScope.launch {
-                                    val meals = mainViewModel.repository.allMealRecords.first()
-                                    val bgs = mainViewModel.repository.allBgRecords.first()
-                                    val insulins = mainViewModel.repository.allInsulinRecords.first()
-                                    
-                                    val csvFile = generateCsvFile(context, meals, bgs, insulins)
-                                    shareCsvFile(context, csvFile)
-                                }
-                            },
-                            backgroundColor = McGrass,
-                            modifier = Modifier.weight(1f)
-                        )
-                        McPixelButton(
-                            text = "ОЧИСТИТЬ ЧАНК",
-                            onClick = { showClearDialog = true },
-                            backgroundColor = McRedstone,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-
+            // Конец списка
             item {
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
-    }
-
-    if (showClearDialog) {
-        AlertDialog(
-            onDismissRequest = { showClearDialog = false },
-            title = {
-                Text(
-                    "ОЧИСТИТЬ ЧАНК БД?",
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = McRedstone
-                )
-            },
-            text = {
-                Text(
-                    "Внимание! Локальная база будет полностью занулена. Выгрузи карту перед этим действием!",
-                    fontFamily = FontFamily.Monospace,
-                    color = McWhite
-                )
-            },
-            confirmButton = {
-                McPixelButton(
-                    text = "ДA, ОЧИСТИТЬ",
-                    onClick = {
-                        coroutineScope.launch {
-                            mainViewModel.repository.clearAllData()
-                        }
-                        showClearDialog = false
-                    },
-                    backgroundColor = McRedstone
-                )
-            },
-            dismissButton = {
-                McPixelButton(
-                    text = "ОТМЕНА",
-                    onClick = { showClearDialog = false },
-                    backgroundColor = McStone
-                )
-            },
-            shape = RectangleShape,
-            containerColor = Color(0xFF333333)
-        )
     }
 }
 

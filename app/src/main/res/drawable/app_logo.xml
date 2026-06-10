@@ -1,0 +1,54 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Background Minecraft Dirt/Grass Green Pixel Pattern -->
+    <path
+        android:fillColor="#4D7A1E"
+        android:pathData="M10,10h80v80h-80z"/>
+    <path
+        android:fillColor="#3D6318"
+        android:pathData="M10,10h15v15h-15zm30,0h20v20h-20zm30,30h10v10h-10z"/>
+
+    <!-- Dark Hearth Border -->
+    <path
+        android:fillColor="#111111"
+        android:pathData="M30,30h15v5h10v-5h15v5h5v20h-5v10h-5v10h-10v10h-10v5h-10v-5h-10v-10h-5v-10h-5v-10h-5v-20h5z"/>
+
+    <!-- Heart Main Red Fill -->
+    <path
+        android:fillColor="#DF2121"
+        android:pathData="M32,32h11v9h14v-9h11v18h-4v8h-6v8h-10v8h-10v-8h-6v-8h-4v-8h-4z"/>
+
+    <!-- Heart Top Sparkle Peak (White highlight) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,34h4v6h-4z"/>
+
+    <!-- Gold Letters "СД" using pixel art paths -->
+    <!-- "С" -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M36,44h10v3h-7v8h7v3h-10z"/>
+    <!-- "Д" -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M48,44h10v12h3v3h-16v-3h3v-9zm3,3h4v6h-4z"/>
+
+    <!-- Blood Droplet on top of heart -->
+    <!-- Droplet border -->
+    <path
+        android:fillColor="#111111"
+        android:pathData="M46,16h8v4h4v8h-16v-8h4z"/>
+    <!-- Droplet inner red -->
+    <path
+        android:fillColor="#EE1D1D"
+        android:pathData="M48,18h4v2h2v6h-8v-6h2z"/>
+    <!-- Droplet tiny spark -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M49,20h1v2h-1z"/>
+
+</vector>

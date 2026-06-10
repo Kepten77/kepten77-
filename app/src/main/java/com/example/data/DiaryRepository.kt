@@ -10,6 +10,10 @@ class DiaryRepository(private val dao: DiaryDao) {
     val allInsulinRecords: Flow<List<InsulinRecord>> = dao.getAllInsulinRecords()
     val latestBgRecord: Flow<BgRecord?> = dao.getLatestBgRecord()
 
+    val footballBgRecords: Flow<List<BgRecord>> = dao.getFootballBgRecords()
+    val footballMealRecords: Flow<List<MealRecord>> = dao.getFootballMealRecords()
+    val footballInsulinRecords: Flow<List<InsulinRecord>> = dao.getFootballInsulinRecords()
+
     fun getBgRecordsBetween(start: Long, end: Long) = dao.getBgRecordsBetween(start, end)
     fun getMealRecordsBetween(start: Long, end: Long) = dao.getMealRecordsBetween(start, end)
     fun getInsulinRecordsBetween(start: Long, end: Long) = dao.getInsulinRecordsBetween(start, end)

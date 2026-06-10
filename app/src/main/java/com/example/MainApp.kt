@@ -18,6 +18,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.ui.dashboard.DashboardScreen
 import com.example.ui.food.FoodInputScreen
 import com.example.ui.insulin.InsulinScreen
+import com.example.ui.football.FootballScreen
+import com.example.ui.settings.SettingsScreen
 import com.example.viewmodel.DashboardViewModel
 import com.example.viewmodel.MainViewModel
 
@@ -25,6 +27,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Settings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +46,8 @@ fun MainApp(mainViewModel: MainViewModel, dashboardViewModel: DashboardViewModel
             composable("dashboard") { DashboardScreen(mainViewModel, dashboardViewModel) }
             composable("food") { FoodInputScreen(mainViewModel) }
             composable("insulin") { InsulinScreen(mainViewModel) }
+            composable("football") { FootballScreen(mainViewModel) }
+            composable("settings") { SettingsScreen(mainViewModel) }
         }
     }
 }
@@ -51,7 +57,9 @@ fun AppBottomNavigationBar(navController: NavHostController) {
     val items = listOf(
         NavigationItem("dashboard", "ГЛАВНАЯ", Icons.Filled.Home),
         NavigationItem("food", "СОБЫТИЯ", Icons.AutoMirrored.Filled.List),
-        NavigationItem("insulin", "ИНСУЛИНЫ", Icons.Filled.Info)
+        NavigationItem("insulin", "ИНСУЛИНЫ", Icons.Filled.Info),
+        NavigationItem("football", "ФУТБОЛ", Icons.Filled.Star),
+        NavigationItem("settings", "НАСТРОЙКИ", Icons.Filled.Settings)
     )
     
     NavigationBar(
@@ -76,7 +84,7 @@ fun AppBottomNavigationBar(navController: NavHostController) {
                         text = item.title,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
+                        fontSize = 9.sp,
                         color = if (isSelected) Color(0xFFFFFF55) else Color.Gray
                     ) 
                 },

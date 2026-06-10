@@ -56,11 +56,7 @@ fun InsulinScreen(mainViewModel: MainViewModel) {
     val tresibaPrimeSum = tresibaRecords.sumOf { it.primeDose }
     val tresibaTotalSum = tresibaBodySum + tresibaPrimeSum
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(McDarkStone)
-    ) {
+    MinecraftBackground {
         Column(
             modifier = Modifier
                 .fillMaxSize()

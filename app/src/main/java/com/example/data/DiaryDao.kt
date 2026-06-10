@@ -46,4 +46,13 @@ interface DiaryDao {
 
     @Query("DELETE FROM insulin_records")
     suspend fun clearInsulinRecords()
+
+    @Query("SELECT * FROM bg_records WHERE scenario IN ('football_active', 'football_control') ORDER BY timestamp DESC")
+    fun getFootballBgRecords(): Flow<List<BgRecord>>
+
+    @Query("SELECT * FROM meal_records WHERE scenario IN ('football_active', 'football_control') ORDER BY timestamp DESC")
+    fun getFootballMealRecords(): Flow<List<MealRecord>>
+
+    @Query("SELECT * FROM insulin_records WHERE scenario IN ('football_active', 'football_control') ORDER BY timestamp DESC")
+    fun getFootballInsulinRecords(): Flow<List<InsulinRecord>>
 }
