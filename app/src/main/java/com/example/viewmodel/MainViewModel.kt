@@ -9,6 +9,7 @@ import com.example.data.DiaryRepository
 import com.example.data.InsulinRecord
 import com.example.data.MealRecord
 import com.example.data.prioritizedByGlucometer
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -30,8 +31,171 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isFootballModeActive = MutableStateFlow(false)
     val isFootballModeActive: StateFlow<Boolean> = _isFootballModeActive.asStateFlow()
 
+    private val _footballGameStartTime = MutableStateFlow<Long?>(null)
+    val footballGameStartTime: StateFlow<Long?> = _footballGameStartTime.asStateFlow()
+
+    private val _footballControlEndTime = MutableStateFlow<Long?>(null)
+    val footballControlEndTime: StateFlow<Long?> = _footballControlEndTime.asStateFlow()
+
+    init {
+        // 1. Automatic Weekly Cleanup of records elder than this week's Monday 00:00
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val cal = Calendar.getInstance()
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                cal.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                if (cal.timeInMillis > System.currentTimeMillis()) {
+                    cal.add(Calendar.WEEK_OF_YEAR, -1)
+                }
+                val currentWeekMondayStart = cal.timeInMillis
+
+                db.diaryDao().deleteBgRecordsBefore(currentWeekMondayStart)
+                db.diaryDao().deleteMealRecordsBefore(currentWeekMondayStart)
+                db.diaryDao().deleteInsulinRecordsBefore(currentWeekMondayStart)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun toggleFootballMode() {
-        _isFootballModeActive.value = !_isFootballModeActive.value
+        viewModelScope.launch(Dispatchers.IO) {
+            val nextState = !_isFootballModeActive.value
+            _isFootballModeActive.value = nextState
+            if (nextState) {
+                _footballGameStartTime.value = System.currentTimeMillis()
+                _footballControlEndTime.value = null
+            } else {
+                _footballGameStartTime.value = null
+                _footballControlEndTime.value = System.currentTimeMillis() + 60 * 60 * 1000L // 60 minutes countdown
+            }
+        }
+    }
+
+    fun startFootballWithSnapshot(initialBg: Double, initialXe: Double, initialInsulin: Double) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            _footballGameStartTime.value = now
+            _isFootballModeActive.value = true
+            _footballControlEndTime.value = null
+
+            if (initialBg > 0.0) {
+                repository.insertBgRecord(
+                    BgRecord(
+                        timestamp = now,
+                        bgValue = initialBg,
+                        direction = "РУЧНОЙ",
+                        isFromXdrip = false,
+                        scenario = "football_active"
+                    )
+                )
+            }
+
+            if (initialXe > 0.0) {
+                repository.insertMealRecord(
+                    MealRecord(
+                        timestamp = now,
+                        foodText = "Футбол: старт замера",
+                        xe = initialXe,
+                        novorapidDose = if (initialInsulin > 0.0) initialInsulin else 0.0,
+                        pauseMinutes = 0,
+                        bgBefore = initialBg,
+                        eventType = "MEAL",
+                        isBalanced = false,
+                        scenario = "football_active"
+                    )
+                )
+            }
+
+            if (initialInsulin > 0.0 && initialXe <= 0.0) {
+                repository.insertInsulinRecord(
+                    InsulinRecord(
+                        timestamp = now,
+                        insulinType = "Novorapid",
+                        dose = initialInsulin,
+                        primeDose = 1.0,
+                        scenario = "football_active"
+                    )
+                )
+            }
+        }
+    }
+
+    fun stopFootballWithControl() {
+        viewModelScope.launch(Dispatchers.IO) {
+            _isFootballModeActive.value = false
+            _footballGameStartTime.value = null
+            _footballControlEndTime.value = System.currentTimeMillis() + 60 * 60 * 1000L
+        }
+    }
+
+    fun logFootballQuickSnack(xe: Double) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            repository.insertMealRecord(
+                MealRecord(
+                    timestamp = now,
+                    foodText = "Спорт-подъел",
+                    xe = xe,
+                    novorapidDose = 0.0,
+                    pauseMinutes = 0,
+                    bgBefore = 0.0,
+                    eventType = "SNACK",
+                    isBalanced = false,
+                    scenario = "football_active"
+                )
+            )
+        }
+    }
+
+    fun logFootballQuickInsulin(dose: Double) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val now = System.currentTimeMillis()
+            repository.insertInsulinRecord(
+                InsulinRecord(
+                    timestamp = now,
+                    insulinType = "Novorapid",
+                    dose = dose,
+                    primeDose = 1.0, // Obligatory 1 unit mechanical wastage
+                    scenario = "football_active"
+                )
+            )
+        }
+    }
+
+    fun insertBgRecord(record: BgRecord) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.insertBgRecord(record)
+        }
+    }
+
+    fun insertMealRecord(record: MealRecord) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.insertMealRecord(record)
+        }
+    }
+
+    fun insertInsulinRecord(record: InsulinRecord) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.insertInsulinRecord(record)
+        }
+    }
+
+    fun clearAllData() {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.clearAllData()
+        }
+    }
+
+    fun getCurrentActiveScenario(): String {
+        return when {
+            _isFootballModeActive.value -> "football_active"
+            (_footballControlEndTime.value ?: 0L) > System.currentTimeMillis() -> "football_control"
+            else -> "regular"
+        }
     }
 
     private val tickerFlow = flow {
@@ -41,7 +205,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Latest BG with priority for manual Glucometer over xDrip sensor in the same timeframe
+    // Latest BG with priority for manual Glucometer over xDrip sensor
     val latestBg: StateFlow<BgRecord?> = repository.allBgRecords.combine(tickerFlow) { records, _ ->
         records.prioritizedByGlucometer().firstOrNull()
     }.stateIn(

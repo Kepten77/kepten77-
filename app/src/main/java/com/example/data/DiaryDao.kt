@@ -41,11 +41,20 @@ interface DiaryDao {
     @Query("DELETE FROM bg_records")
     suspend fun clearBgRecords()
 
+    @Query("DELETE FROM bg_records WHERE timestamp < :timestamp")
+    suspend fun deleteBgRecordsBefore(timestamp: Long)
+
     @Query("DELETE FROM meal_records")
     suspend fun clearMealRecords()
 
+    @Query("DELETE FROM meal_records WHERE timestamp < :timestamp")
+    suspend fun deleteMealRecordsBefore(timestamp: Long)
+
     @Query("DELETE FROM insulin_records")
     suspend fun clearInsulinRecords()
+
+    @Query("DELETE FROM insulin_records WHERE timestamp < :timestamp")
+    suspend fun deleteInsulinRecordsBefore(timestamp: Long)
 
     @Query("SELECT * FROM bg_records WHERE scenario IN ('football_active', 'football_control') ORDER BY timestamp DESC")
     fun getFootballBgRecords(): Flow<List<BgRecord>>

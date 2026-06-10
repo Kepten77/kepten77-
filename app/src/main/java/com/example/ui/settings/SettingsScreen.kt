@@ -153,9 +153,7 @@ fun SettingsScreen(mainViewModel: MainViewModel) {
                 McPixelButton(
                     text = "ДА, ОЧИСТИТЬ",
                     onClick = {
-                        coroutineScope.launch {
-                            mainViewModel.repository.clearAllData()
-                        }
+                        mainViewModel.clearAllData()
                         showDialog = false
                     },
                     backgroundColor = McRedstone

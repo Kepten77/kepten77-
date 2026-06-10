@@ -1,7 +1,6 @@
 package com.example.ui.football
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -9,17 +8,14 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.BgRecord
@@ -28,22 +24,36 @@ import com.example.data.MealRecord
 import com.example.ui.dashboard.McPixelButton
 import com.example.ui.dashboard.McSlotItem
 import com.example.ui.dashboard.getBgColorCode
+import com.example.ui.food.McTextFieldMinecraft
 import com.example.ui.theme.*
 import com.example.viewmodel.MainViewModel
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
 fun FootballScreen(mainViewModel: MainViewModel) {
     val isFootballActive by mainViewModel.isFootballModeActive.collectAsState()
-    
+    val gameStartTime by mainViewModel.footballGameStartTime.collectAsState()
+    val controlEndTime by mainViewModel.footballControlEndTime.collectAsState()
+
     val bgRecords by mainViewModel.footballBgRecords.collectAsState()
     val mealRecords by mainViewModel.footballMealRecords.collectAsState()
     val insulinRecords by mainViewModel.footballInsulinRecords.collectAsState()
 
-    // Grouping all sports records by calendar date
+    // Aggregate sessions for historical logs
     val sessions = remember(bgRecords, mealRecords, insulinRecords) {
         aggregateFootballSessions(bgRecords, mealRecords, insulinRecords)
+    }
+
+    // Active Timer update ticker (runs only when football is active)
+    var matchDurationMinutes by remember { mutableStateOf(0L) }
+    LaunchedEffect(isFootballActive, gameStartTime) {
+        while (isFootballActive && gameStartTime != null) {
+            val diffMs = System.currentTimeMillis() - gameStartTime!!
+            matchDurationMinutes = diffMs / 60000L
+            delay(10000L) // Update every 10 seconds
+        }
     }
 
     MinecraftBackground {
@@ -64,53 +74,183 @@ fun FootballScreen(mainViewModel: MainViewModel) {
                 )
             }
 
-            // Interactive Toggle for Football Mode inside the tab!
-            item {
-                val accentColor = if (isFootballActive) McRedstone else Color.Black
-                val backgroundCol = if (isFootballActive) Color(0xFF531E1E) else Color(0xFF2E2E2E)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(BorderStroke(2.dp, accentColor))
-                        .background(backgroundCol)
-                        .clickable { mainViewModel.toggleFootballMode() }
-                        .padding(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+            // DUAL STATES BLOCK
+            if (isFootballActive) {
+                // ACTIVE IN-BATTLE CONTROLS
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(3.dp, McRedstone)
+                            .background(Color(0xFF3A1C1C))
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Column {
-                            Text(
-                                text = "РЕЖИМ ФУТБОЛА",
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = if (isFootballActive) McGold else McWhite,
-                                fontFamily = FontFamily.Monospace
+                        Text(
+                            text = "⚔️ В БИТВЕ ⚔️",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = McGold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        
+                        Text(
+                            text = "ДЛИТЕЛЬНОСТЬ МАТЧА: $matchDurationMinutes МИНУТ",
+                            fontSize = 12.sp,
+                            color = McWhite,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Large One-Tap Buttons
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            McPixelButton(
+                                text = "🥯 ПОДЪЕЛ\n+1 ХЕ",
+                                onClick = {
+                                    mainViewModel.logFootballQuickSnack(1.0)
+                                },
+                                backgroundColor = McGrass,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(64.dp)
                             )
-                            Text(
-                                text = if (isFootballActive) "⚔️ ТРЕНИРОВКА АКТИВНА СЕЙЧАС (ЗАПИСИ АВТО-КЛАССИФИЦИРУЮТСЯ)" else "🛡️ ТРЕНИРОВКА ВЫКЛЮЧЕНА (КЛИКНИ ДЛЯ СТАРТА)",
-                                fontSize = 10.sp,
-                                color = if (isFootballActive) McRedstone else Color.LightGray,
-                                fontFamily = FontFamily.Monospace
+
+                            McPixelButton(
+                                text = "💉 ПОДКОЛОЛ\n+1 ЕД",
+                                onClick = {
+                                    mainViewModel.logFootballQuickInsulin(1.0)
+                                },
+                                backgroundColor = McGold,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(64.dp)
                             )
                         }
-                        Switch(
-                            checked = isFootballActive,
-                            onCheckedChange = { mainViewModel.toggleFootballMode() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = McRedstone,
-                                checkedTrackColor = Color.Black,
-                                uncheckedThumbColor = McStone,
-                                uncheckedTrackColor = Color.DarkGray
-                            )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        McPixelButton(
+                            text = "⏹️ СТОП ТРЕНИРОВКА",
+                            onClick = {
+                                mainViewModel.stopFootballWithControl()
+                            },
+                            backgroundColor = Color(0xFF555555),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            } else {
+                // START TRAINING PANEL (WITH SNAPSHOT FORM)
+                item {
+                    var startBgField by remember { mutableStateOf("") }
+                    var startXeField by remember { mutableStateOf("") }
+                    var startInsulinField by remember { mutableStateOf("") }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(2.dp, McGold)
+                            .background(Color(0xFF2E2E2E))
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "НОВАЯ ТРЕНИРОВКА (СТАРТ)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = McGold,
+                            fontFamily = FontFamily.Monospace
+                        )
+
+                        // If post-match control 60m countdown is active, show countdown notice!
+                        val isControlActive = (controlEndTime ?: 0L) > System.currentTimeMillis()
+                        if (isControlActive) {
+                            val timeRemainingSec = (controlEndTime!! - System.currentTimeMillis()) / 1000L
+                            val minRemaining = timeRemainingSec / 60
+                            val secRemaining = timeRemainingSec % 60
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.Black)
+                                    .padding(1.dp)
+                                    .background(Color(0xFF1B3D2B))
+                                    .padding(8.dp)
+                            ) {
+                                Text(
+                                    text = "🛡️ ПОСТ-МАТЧЕВЫЙ КОНТРОЛЬ АКТИВЕН: ОСТАЛОСЬ ${minRemaining}:${String.format(Locale.US, "%02d", secRemaining)} МИН. ВСЕ ЗАПРОСЫ ПОЛУЧАЮТ МЕТКУ CONTROL.",
+                                    fontSize = 10.sp,
+                                    color = McWhite,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+
+                        McTextFieldMinecraft(
+                            value = startBgField,
+                            onValueChange = { startBgField = it },
+                            label = "СТАРТОВЫЙ САХАР (ММОЛЬ/Л)",
+                            keyboardType = KeyboardType.Number
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                McTextFieldMinecraft(
+                                    value = startXeField,
+                                    onValueChange = { startXeField = it },
+                                    label = "ХЕ НА ХОДУ",
+                                    keyboardType = KeyboardType.Number
+                                )
+                            }
+                            Box(modifier = Modifier.weight(1f)) {
+                                McTextFieldMinecraft(
+                                    value = startInsulinField,
+                                    onValueChange = { startInsulinField = it },
+                                    label = "НОВОРАПИД КОК",
+                                    keyboardType = KeyboardType.Number
+                                )
+                            }
+                        }
+
+                        McPixelButton(
+                            text = "⚔️ НАЧАТЬ ТРЕНИРОВКУ",
+                            onClick = {
+                                val bgVal = startBgField.toDoubleOrNull() ?: 0.0
+                                val xeVal = startXeField.toDoubleOrNull() ?: 0.0
+                                val insVal = startInsulinField.toDoubleOrNull() ?: 0.0
+                                mainViewModel.startFootballWithSnapshot(bgVal, xeVal, insVal)
+                                // reset local fields
+                                startBgField = ""
+                                startXeField = ""
+                                startInsulinField = ""
+                            },
+                            backgroundColor = McRedstone,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
             }
 
-            // List of Sessions or Empty state
+            // HISTORICAL SESSIONS LIST
+            item {
+                Text(
+                    text = "ИСТОРИЯ МАТЧЕЙ И СЕССИЙ ЗА НЕДЕЛЮ",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = McGold,
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+            }
+
             if (sessions.isEmpty()) {
                 item {
                     McSlotItem(backgroundColor = Color(0xFF2C2C2C)) {
@@ -121,19 +261,11 @@ fun FootballScreen(mainViewModel: MainViewModel) {
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "НЕТ СПОРТИВНЫХ СЕССИЙ ЗА НЕДЕЛЮ",
-                                fontSize = 12.sp,
+                                text = "НЕТ СПОРТИВНЫХ ЗАПИСЕЙ ЗА НЕДЕЛЮ",
+                                fontSize = 11.sp,
                                 color = Color.Gray,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Все записи с метками 'football_active' или 'football_control' автоматически появятся здесь.",
-                                fontSize = 10.sp,
-                                color = Color.LightGray,
-                                fontFamily = FontFamily.Monospace,
-                                modifier = Modifier.padding(horizontal = 8.dp)
                             )
                         }
                     }
@@ -157,7 +289,7 @@ fun FootballSessionView(session: FootballSession) {
             .border(BorderStroke(2.dp, Color.Black))
             .background(Color(0xFF333333))
     ) {
-        // Day Header selector
+        // Collapsible trigger header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -169,21 +301,21 @@ fun FootballSessionView(session: FootballSession) {
             Column {
                 Text(
                     text = session.dateStr.uppercase(),
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = McGold,
                     fontFamily = FontFamily.Monospace
                 )
                 Text(
-                    text = "Записей: ${session.totalRecordsCount} (Активно: ${session.runRecords.size} / Контроль: ${session.controlRecords.size})",
+                    text = "СОБЫТИЙ: ${session.totalRecordsCount} (АКТ: ${session.runRecords.size} / ПОСТ: ${session.controlRecords.size})",
                     fontSize = 10.sp,
                     color = Color.LightGray,
                     fontFamily = FontFamily.Monospace
                 )
             }
             Text(
-                text = if (expanded) "[-]" else "[+]",
-                fontSize = 14.sp,
+                text = if (expanded) "[- СВЕРНУТЬ]" else "[+ РАЗВЕРНУТЬ]",
+                fontSize = 11.sp,
                 color = McGold,
                 fontFamily = FontFamily.Monospace,
                 fontWeight = FontWeight.Bold
@@ -196,18 +328,18 @@ fun FootballSessionView(session: FootballSession) {
                     .fillMaxWidth()
                     .background(Color(0xFF222222))
                     .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // SECTION 1: SNAPSHOT СТАРТА
+                // STARTING STATS
                 Column {
                     Text(
-                        text = "⛳ SNAPSHOT СТАРТА (ВХОД):",
+                        text = "⛳ SNAPSHOT СТАРТА:",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = McGrass,
                         fontFamily = FontFamily.Monospace
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -217,43 +349,38 @@ fun FootballSessionView(session: FootballSession) {
                             .padding(8.dp)
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            // Initial Bg
                             val startBg = session.startBg
                             val startBgStr = if (startBg != null) {
-                                "${String.format(Locale.US, "%.1f", startBg.bgValue)} ммоль/л (${if (startBg.isFromXdrip) startBg.direction else "ГЛЮКОМЕТР"})"
+                                "${String.format(Locale.US, "%.1f", startBg.bgValue)} ммоль/л"
                             } else {
-                                "НЕТ СТАРТОВОГО ЗАМЕРА"
+                                "НЕТ"
                             }
                             Text(
-                                text = "• Стартовый сахар: $startBgStr",
+                                text = "• САХАР НА СТАРТЕ: $startBgStr",
                                 fontSize = 11.sp,
                                 color = if (startBg != null) getBgColorCode(startBg.bgValue) else Color.Gray,
                                 fontFamily = FontFamily.Monospace
                             )
 
-                            // Start Food/XE
-                            val startMeals = session.startMeals
-                            val startMealsStr = if (startMeals.isNotEmpty()) {
-                                startMeals.joinToString(", ") { "${it.xe} ХЕ (${it.foodText.ifBlank { "Перекус" }})" }
+                            val startMealsStr = if (session.startMeals.isNotEmpty()) {
+                                session.startMeals.joinToString(", ") { "${it.xe} ХЕ" }
                             } else {
                                 "0 ХЕ"
                             }
                             Text(
-                                text = "• Съедено углеводов: $startMealsStr",
+                                text = "• УГЛЕВОДЫ (ХЕ): $startMealsStr",
                                 fontSize = 11.sp,
                                 color = McWhite,
                                 fontFamily = FontFamily.Monospace
                             )
 
-                            // Start Insulin
-                            val startInsulins = session.startInsulins
-                            val startInsulinsStr = if (startInsulins.isNotEmpty()) {
-                                startInsulins.joinToString(", ") { "${it.dose} ЕД (${it.insulinType})" }
+                            val startInsulinsStr = if (session.startInsulins.isNotEmpty()) {
+                                session.startInsulins.joinToString(", ") { "${it.dose} ЕД Novo" }
                             } else {
                                 "0 ЕД"
                             }
                             Text(
-                                text = "• Инсулин на входе: $startInsulinsStr",
+                                text = "• ИНСУЛИН СТАРТА: $startInsulinsStr",
                                 fontSize = 11.sp,
                                 color = Color.LightGray,
                                 fontFamily = FontFamily.Monospace
@@ -262,21 +389,21 @@ fun FootballSessionView(session: FootballSession) {
                     }
                 }
 
-                // SECTION 2: В ПРОЦЕССЕ ТРЕНИРОВКИ
+                // PROCESS LOG EVENTS
                 Column {
                     Text(
-                        text = "⚔️ В ПРОЦЕССЕ ТРЕНИРОВКИ (ОБНОВЛЕНИЯ НА ПОЛЕ):",
+                        text = "⚔️ В ПРОЦЕССЕ ТРЕНИРОВКИ:",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = McRedstone,
                         fontFamily = FontFamily.Monospace
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     
                     val midEvents = session.processEvents
                     if (midEvents.isEmpty()) {
                         Text(
-                            text = "Нет событий во время игры",
+                            text = "НЕТ ПОДЪЕЛОВ / ПОДКОЛОК В ИГРЕ",
                             fontSize = 10.sp,
                             color = Color.Gray,
                             fontFamily = FontFamily.Monospace,
@@ -305,74 +432,26 @@ fun FootballSessionView(session: FootballSession) {
                     }
                 }
 
-                // SECTION 3: ФИНАЛ И КОНЕЦ ИГРЫ
+                // POST-GAME CONTROL RESULTS
                 Column {
                     Text(
-                        text = "🏁 ПОКАЗАНИЯ НА КОНЕЦ ИГРЫ:",
+                        text = "🛡️ ПОСТ-МАТЧЕВЫЙ КОНТРОЛЬ (+60 МИН):",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = McTextGold,
+                        color = Color(0xFF55FFFF),
                         fontFamily = FontFamily.Monospace
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color.Black)
-                            .padding(1.dp)
-                            .background(Color(0xFF2D2D2D))
-                            .padding(8.dp)
-                    ) {
-                        val endBg = session.endBg
-                        if (endBg != null) {
-                            val glucoseCol = getBgColorCode(endBg.bgValue)
-                            Text(
-                                text = "Финальный сахар: ${String.format(Locale.US, "%.1f", endBg.bgValue)} ммоль/л",
-                                fontSize = 11.sp,
-                                color = glucoseCol,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        } else {
-                            Text(
-                                text = "Нет замеров на конец тренировки",
-                                fontSize = 11.sp,
-                                color = Color.Gray,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    }
-                }
+                    Spacer(modifier = Modifier.height(2.dp))
 
-                // SECTION 4: ОБЯЗАТЕЛЬНЫЙ ПОСТ-КОНТРОЛЬ ПОСЛЕ ИГРЫ (через 40-60 мин)
-                Column {
-                    Text(
-                        text = "🛡️ КОНТРОЛЬ (ЧЕРЕЗ 40-60 МИНУТ ПОСЛЕ ИГРЫ):",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = McWhite,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
                     val controlLogs = session.controlLogs
                     if (controlLogs.isEmpty()) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color.Black)
-                                .padding(1.dp)
-                                .background(Color(0xFF332020))
-                                .padding(8.dp)
-                        ) {
-                            Text(
-                                text = "⚠️ ВНИМАНИЕ! КОНТРОЛЬНЫЙ ЗАМЕР ОТСУТСТВУЕТ.\nЗарегистрируй показания со сценарием 'КОНТРОЛЬ ПОСЛЕ'!",
-                                fontSize = 10.sp,
-                                color = McRedstone,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
+                        Text(
+                            text = "НЕТ КОНТРОЛЬНЫХ ЗАМЕРОВ",
+                            fontSize = 10.sp,
+                            color = Color.Gray,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             controlLogs.forEach { log ->
@@ -381,7 +460,7 @@ fun FootballSessionView(session: FootballSession) {
                                         .fillMaxWidth()
                                         .background(Color.Black)
                                         .padding(1.dp)
-                                        .background(Color(0xFF1F2922))
+                                        .background(Color(0xFF1E282E))
                                         .padding(6.dp)
                                 ) {
                                     Text(
@@ -458,30 +537,30 @@ private fun aggregateFootballSessions(
         )
         val startThreshold = if (timestamps.isNotEmpty()) timestamps.minOrNull()!! else 0L
 
-        // Earliest BG record as START snapshot (within 30 mins or just the first)
+        // Earliest BG record as START snapshot
         val startBg = activeBgs.firstOrNull()
         
-        // Start insulin and food loaded together at the start (within first 15 minutes of the workout)
+        // Start insulin and food loaded together at the start (within first 15 minutes)
         val startMeals = activeMeals.filter { Math.abs(it.timestamp - startThreshold) <= 15 * 60 * 1000L }
         val startInsulins = activeInsulins.filter { Math.abs(it.timestamp - startThreshold) <= 15 * 60 * 1000L }
 
-        // Process updates (anything after the start window components but before the last active BG)
+        // Process updates
         val lastBg = activeBgs.lastOrNull()
         val endBg = if (activeBgs.size > 1) lastBg else null
 
         val processEvents = mutableListOf<String>()
         val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
-        // Add BG updates in process (not including start and end)
+        // Add BG updates in process
         activeBgs.forEach { bg ->
             if (bg != startBg && bg != endBg) {
-                processEvents.add("[⏱️ ${timeFormat.format(Date(bg.timestamp))}] ЗАМЕР: ${String.format(Locale.US, "%.1f", bg.bgValue)} ммоль/л (${if (bg.isFromXdrip) bg.direction else "РАЗОВО"})")
+                processEvents.add("[⏱️ ${timeFormat.format(Date(bg.timestamp))}] ЗАМЕР: ${String.format(Locale.US, "%.1f", bg.bgValue)} ммоль/л")
             }
         }
         // Add meals in process
         activeMeals.forEach { meal ->
             if (!startMeals.contains(meal)) {
-                processEvents.add("[⏱️ ${timeFormat.format(Date(meal.timestamp))}] СВЕЖИЕ УГЛЕВОДЫ: ${meal.xe} ХЕ (${meal.foodText.ifBlank { "Перекус на поле" }})")
+                processEvents.add("[⏱️ ${timeFormat.format(Date(meal.timestamp))}] ПОДЪЕЛ: ${meal.xe} ХЕ (${meal.foodText})")
             }
         }
         // Add insulin in process
@@ -490,15 +569,14 @@ private fun aggregateFootballSessions(
                 processEvents.add("[⏱️ ${timeFormat.format(Date(insulin.timestamp))}] ПОДКОЛКА: ${insulin.dose} ЕД (${insulin.insulinType})")
             }
         }
-        // Sort process events chronologically by timestamps if needed (they are already mostly sorted relative to themselves)
 
         // Control Logs after Game
         val controlLogs = mutableListOf<String>()
         controlBgs.forEach { bg ->
-            controlLogs.add("[⏱️ ${timeFormat.format(Date(bg.timestamp))}] ПОСТ-ЗАМЕР: ${String.format(Locale.US, "%.1f", bg.bgValue)} ммоль/л")
+            controlLogs.add("[⏱️ ${timeFormat.format(Date(bg.timestamp))}] ЗАМЕР: ${String.format(Locale.US, "%.1f", bg.bgValue)} ммоль/л")
         }
         controlMeals.forEach { meal ->
-            controlLogs.add("[⏱️ ${timeFormat.format(Date(meal.timestamp))}] СЪЕДЕНО: ${meal.xe} ХЕ (${meal.foodText})")
+            controlLogs.add("[⏱️ ${timeFormat.format(Date(meal.timestamp))}] ПОДЪЕЛ: ${meal.xe} ХЕ (${meal.foodText})")
         }
         controlInsulins.forEach { insulin ->
             controlLogs.add("[⏱️ ${timeFormat.format(Date(insulin.timestamp))}] ПОДКОЛКА: ${insulin.dose} ЕД (${insulin.insulinType})")
@@ -526,7 +604,7 @@ private fun aggregateFootballSessions(
                 startMeals = startMeals,
                 startInsulins = startInsulins,
                 processEvents = processEvents,
-                endBg = endBg ?: startBg, // Fallback to start if only one exists
+                endBg = endBg ?: startBg,
                 controlLogs = controlLogs
             )
         )

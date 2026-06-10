@@ -2,6 +2,8 @@ package com.example.ui.dashboard
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -31,8 +33,6 @@ import com.example.data.MealRecord
 import com.example.ui.theme.*
 import com.example.viewmodel.DashboardViewModel
 import com.example.viewmodel.MainViewModel
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
@@ -53,14 +53,24 @@ fun DashboardScreen(
     val ukResult by mainViewModel.ukAnalysisState.collectAsState()
     
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    var showClearDialog by remember { mutableStateOf(false) }
 
-    // Redstone Border when Football scenario (battle) is active
+    // Pulsing Redstone color animation for borders
+    val infiniteTransition = rememberInfiniteTransition(label = "redstone_pulse")
+    val pulseColor by infiniteTransition.animateColor(
+        initialValue = Color(0xFF6F0E0E),
+        targetValue = Color(0xFFFF2E2E),
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_color"
+    )
+
+    // Redstone Border when Football scenario is active
     val borderModifier = if (isFootball) {
         Modifier
             .fillMaxSize()
-            .border(6.dp, McRedstone)
+            .border(6.dp, pulseColor)
             .padding(6.dp)
     } else {
         Modifier.fillMaxSize()
@@ -75,14 +85,14 @@ fun DashboardScreen(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Title
+            // Title and last sugar
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Minecraft styled pixel border for the logo image
+                    // Logo box
                     Box(
                         modifier = Modifier
                             .border(BorderStroke(2.dp, Color.Black))
@@ -99,12 +109,11 @@ fun DashboardScreen(
                     }
                     
                     if (latestBg != null) {
-                        val isGlucometer = !latestBg!!.isFromXdrip
-                        val borderCol = if (isGlucometer) McGold else Color.Black
-                        val textValue = if (isGlucometer) "⭐${String.format(Locale.US, "%.1f", latestBg!!.bgValue)}" else String.format(Locale.US, "%.1f", latestBg!!.bgValue)
-                        val textColor = if (isGlucometer) McGold else getBgColorCode(latestBg!!.bgValue)
-                        val subText = if (isGlucometer) "ГЛЮКОМЕТР" else latestBg!!.direction
-                        val subTextColor = if (isGlucometer) McGold else Color.White
+                        val isGlucometer = true // All are manual in our offline app
+                        val borderCol = McGold
+                        val textValue = "⭐" + String.format(Locale.US, "%.1f", latestBg!!.bgValue)
+                        val textColor = getBgColorCode(latestBg!!.bgValue)
+                        val subText = "ГЛЮКОМЕТР"
 
                         McSlotItem(
                             modifier = Modifier.width(110.dp),
@@ -134,9 +143,34 @@ fun DashboardScreen(
                                 Text(
                                     text = subText,
                                     fontSize = 9.sp,
-                                    color = subTextColor,
+                                    color = McGold,
                                     fontFamily = FontFamily.Monospace,
-                                    fontWeight = if (isGlucometer) FontWeight.Bold else FontWeight.Normal
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    } else {
+                        // Empty sugar indicator
+                        McSlotItem(
+                            modifier = Modifier.width(110.dp),
+                            borderColor = Color.Gray
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "--",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Gray,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Text(
+                                    text = "НЕТ ЗАМЕРОВ",
+                                    fontSize = 9.sp,
+                                    color = Color.LightGray,
+                                    fontFamily = FontFamily.Monospace
                                 )
                             }
                         }
@@ -309,6 +343,46 @@ fun DashboardScreen(
                 }
             }
 
+            // Блок 5 (Индикация Футбола)
+            item {
+                Column {
+                    BlockHeader("БЛОК 5: ИНДИКАЦИЯ ФУТБОЛА")
+                    McSlotItem(borderColor = if (isFootball) McRedstone else Color.Black) {
+                        Column(
+                            modifier = Modifier.padding(6.dp).fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (isFootball) {
+                                Text(
+                                    text = "⚔️ РЕЖИМ БИТВЫ АКТИВЕН ⚔️",
+                                    color = McRedstone,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    textAlign = TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Трофим тренируется! Рамка экрана пульсирует редстоуном, а все записи помечаются меткой спортивной сессии.",
+                                    color = Color.LightGray,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    textAlign = TextAlign.Center
+                                )
+                            } else {
+                                Text(
+                                    text = "🛡️ ТРЕНИРОВКА НЕАКТИВНА",
+                                    color = Color.Gray,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             // Конец списка
             item {
                 Spacer(modifier = Modifier.height(24.dp))
@@ -415,7 +489,7 @@ fun McIntervalRow(title: String, records: List<BgRecord>, timeFormat: SimpleDate
                 val itemsData = records.take(6).map { 
                     val time = timeFormat.format(Date(it.timestamp))
                     val bgVal = String.format(Locale.US, "%.1f", it.bgValue)
-                    val isGluco = !it.isFromXdrip
+                    val isGluco = true
                     Triple(time, bgVal, isGluco)
                 }
                 
@@ -436,8 +510,8 @@ fun McIntervalRow(title: String, records: List<BgRecord>, timeFormat: SimpleDate
                             fontFamily = FontFamily.Monospace
                         )
                         
-                        val displayValue = if (isGluco) "⭐$bgVal" else ":$bgVal"
-                        val textColor = if (isGluco) McGold else getBgColorCode(bgVal.toDoubleOrNull() ?: 5.5)
+                        val displayValue = "⭐$bgVal"
+                        val textColor = getBgColorCode(bgVal.toDoubleOrNull() ?: 5.5)
                         
                         Text(
                             text = displayValue,

@@ -25,50 +25,29 @@ import com.example.ui.dashboard.McPixelButton
 import com.example.ui.dashboard.McSlotItem
 import com.example.ui.theme.*
 import com.example.viewmodel.MainViewModel
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FoodInputScreen(mainViewModel: MainViewModel) {
-    val coroutineScope = rememberCoroutineScope()
-    val isFootball by mainViewModel.isFootballModeActive.collectAsState()
-    val latestBgState by mainViewModel.latestBg.collectAsState()
+    val isFootballActive by mainViewModel.isFootballModeActive.collectAsState()
     val ukResult by mainViewModel.ukAnalysisState.collectAsState()
 
-    // 1. Event Type Switcher
-    // "MEAL" (Прием пищи), "SNACK" (Перекус), "CORRECTION" (Подколка без еды), "BASAL" (Тресиба)
-    var selectedEventType by remember { mutableStateOf("MEAL") }
-
+    // 1. Switch between MEAL (Прием пищи) and SNACK (Перекусы/купирование)
+    var selectedEventType by remember { mutableStateOf("MEAL") } // "MEAL" or "SNACK"
+    
     // Forms fields
     var timeStr by remember { mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())) }
-    var bgInput by remember { mutableStateOf("") }
-    var glucoInput by remember { mutableStateOf("") }
-    
-    var selectedScenario by remember { mutableStateOf("regular") }
-    
-    // Auto default/adjust based on global football state
-    LaunchedEffect(isFootball) {
-        selectedScenario = if (isFootball) "football_active" else "regular"
-    }
-
-    // Auto populate xDrip value but allow typing/overriding completely
-    LaunchedEffect(latestBgState) {
-        if (latestBgState != null && bgInput.isEmpty()) {
-            bgInput = String.format(Locale.US, "%.1f", latestBgState!!.bgValue)
-        }
-    }
-
-    // Food fields
+    var glucoseInput by remember { mutableStateOf("") }
     var foodText by remember { mutableStateOf("") }
     var xeInput by remember { mutableStateOf("") }
     var pauseInput by remember { mutableStateOf("") }
-
-    // Insulin doses (Novorapid or Tresiba depending on type)
+    
+    // Insulin fields
     var insulinDoseInput by remember { mutableStateOf("") }
+    var selectedInsulinType by remember { mutableStateOf("Novorapid") } // "Novorapid" or "Tresiba"
 
-    // Hints information Box showing the current estimated carbohydrate ratio
+    // Help UK advice calculation
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     val currentUkHint = when (hour) {
         in 0..12 -> ukResult.ukMorning
@@ -93,7 +72,7 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
                 fontFamily = FontFamily.Monospace
             )
 
-            // Event selector in full pixel art segmented box
+            // Switcher: ПРИЕМ ПИЩИ vs ПЕРЕКУС
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = "ТИП СОБЫТИЯ:",
@@ -109,9 +88,8 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     val types = listOf(
-                        "MEAL" to "ЕДА",
-                        "SNACK" to "ПЕРЕКУС",
-                        "STANDALONE" to "УКОЛ"
+                        "MEAL" to "ПРИЕМ ПИЩИ",
+                        "SNACK" to "ПЕРЕКУС (КУПИРОВАНИЕ)"
                     )
                     types.forEach { (type, label) ->
                         val isSelected = selectedEventType == type
@@ -135,141 +113,88 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
                 }
             }
 
-            // Scenario selection in full pixel art segmented box
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "СЦЕНАРИЙ ЗАПИСИ (СПОРТ / ОБЫЧНЫЙ):",
-                    fontSize = 11.sp,
-                    color = Color.LightGray,
-                    fontFamily = FontFamily.Monospace
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color.Black)
-                        .padding(2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    val scenarios = listOf(
-                        "regular" to "ОБЫЧНЫЙ",
-                        "football_active" to "⚔️ ИГРА / СТАРТ",
-                        "football_control" to "🛡️ КОНТРОЛЬ"
-                    )
-                    scenarios.forEach { (scen, label) ->
-                        val isSelected = selectedScenario == scen
-                        val bgCol = if (isSelected) {
-                            if (scen == "regular") McDirt else if (scen == "football_active") McRedstone else McGrass
-                        } else Color.Transparent
-                        
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { selectedScenario = scen }
-                                .background(bgCol)
-                                .padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                color = if (isSelected) McWhite else Color.Gray,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
-                    }
-                }
-            }
-
-            // General Info Block
+            // Glucose input (manual only!)
             McSlotItem {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // Time field
                     McTextFieldMinecraft(
                         value = timeStr,
                         onValueChange = { timeStr = it },
                         label = "ВРЕМЯ ЗАПИСИ (ЧЧ:ММ)"
                     )
 
-                    // Sugar level xDrip/Glucometer (fully active and editable!)
                     McTextFieldMinecraft(
-                        value = bgInput,
-                        onValueChange = { bgInput = it },
-                        label = "СЕНСОР XDRIP (АВТОМАТИЧЕСКИ, ММОЛЬ/Л)",
-                        keyboardType = KeyboardType.Number
-                    )
-
-                    // Glucometer manual stripe entry (real blood drop)
-                    McTextFieldMinecraft(
-                        value = glucoInput,
-                        onValueChange = { glucoInput = it },
-                        label = "ГЛЮКОМЕТР (ПО КАПЛЕ КРОВИ, ММОЛЬ/Л) ⭐",
+                        value = glucoseInput,
+                        onValueChange = { glucoseInput = it },
+                        label = "УРОВЕНЬ ГЛЮКОЗЫ (ГЛЮКОМЕТР ММОЛЬ/Л)",
                         keyboardType = KeyboardType.Number
                     )
                 }
             }
 
-            // Food Block: Activated if not choosing Standalone Insulin
-            if (selectedEventType == "MEAL" || selectedEventType == "SNACK") {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = "СОСТАВ ПРИЕМА ПИЩИ",
-                        fontSize = 11.sp,
-                        color = McGold,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    McSlotItem {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            McTextFieldMinecraft(
-                                value = foodText,
-                                onValueChange = { foodText = it },
-                                label = "ПРИЕМ ПИЩИ (НАПРИМЕР: ГРЕЧКА 100Г, ХЛЕБ)"
-                            )
+            // Food intake details
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "ДАННЫЕ ПИЩИ",
+                    fontSize = 11.sp,
+                    color = McGold,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+                McSlotItem {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        McTextFieldMinecraft(
+                            value = foodText,
+                            onValueChange = { foodText = it },
+                            label = "ПРИЕМ ПИЩИ (ПРИМЕР: КАША ГРЕЧНЕВАЯ 100Г, ХЛЕБ)"
+                        )
 
-                            McTextFieldMinecraft(
-                                value = xeInput,
-                                onValueChange = { xeInput = it },
-                                label = "КОЛИЧЕСТВО ХЕ",
-                                keyboardType = KeyboardType.Number
-                            )
-
-                            McTextFieldMinecraft(
-                                value = pauseInput,
-                                onValueChange = { pauseInput = it },
-                                label = "ПАУЗА ПЕРЕД ЕДОЙ (МИН)",
-                                keyboardType = KeyboardType.Number
-                            )
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Box(modifier = Modifier.weight(1f)) {
+                                McTextFieldMinecraft(
+                                    value = xeInput,
+                                    onValueChange = { xeInput = it },
+                                    label = "КОЛИЧЕСТВО ХЕ",
+                                    keyboardType = KeyboardType.Number
+                                )
+                            }
+                            Box(modifier = Modifier.weight(1f)) {
+                                McTextFieldMinecraft(
+                                    value = pauseInput,
+                                    onValueChange = { pauseInput = it },
+                                    label = "ПАУЗА ПЕРЕД ЕДОЙ (МИН)",
+                                    keyboardType = KeyboardType.Number
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // Standalone Insulin Config
-            var selectedInsulinTypeForStandalone by remember { mutableStateOf("Novorapid") }
-            if (selectedEventType == "STANDALONE") {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        text = "ИНЪЕКЦИЯ САНС ЕДА",
-                        fontSize = 11.sp,
-                        color = McGold,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
-                    McSlotItem {
+            // Insulin input
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "ДАННЫЕ ИНСУЛИНА",
+                    fontSize = 11.sp,
+                    color = McGold,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+                McSlotItem {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Choice of insulin type
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .background(Color.Black)
                                 .padding(2.dp)
                         ) {
-                            val insulins = listOf("Novorapid" to "НОВОРАПИД", "Tresiba" to "ТРЕСИБА")
+                            val insulins = listOf("Novorapid" to "НОВОРАПИД (УЛЬТРА)", "Tresiba" to "ТРЕСИБА (БАЗА)")
                             insulins.forEach { (type, label) ->
-                                val isSelected = selectedInsulinTypeForStandalone == type
+                                val isSelected = selectedInsulinType == type
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clickable { selectedInsulinTypeForStandalone = type }
+                                        .clickable { selectedInsulinType = type }
                                         .background(if (isSelected) McGrass else Color.Transparent)
                                         .padding(vertical = 10.dp),
                                     contentAlignment = Alignment.Center
@@ -284,21 +209,7 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
                                 }
                             }
                         }
-                    }
-                }
-            }
 
-            // Insulin Dosage Block (fully active, manually input!)
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "ДОЗИРОВКА ИНСУЛИНА",
-                    fontSize = 11.sp,
-                    color = McGold,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                )
-                McSlotItem {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         McTextFieldMinecraft(
                             value = insulinDoseInput,
                             onValueChange = { insulinDoseInput = it },
@@ -306,28 +217,31 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
                             keyboardType = KeyboardType.Number
                         )
 
-                        // Minecraft style hint box about current estimated UK
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color.Black)
-                                .padding(1.dp)
-                                .background(Color(0xFF333333))
-                                .padding(8.dp)
-                        ) {
-                            Text(
-                                text = "💡 ПОДСКАЗКА: РЕКОМЕНДУЕМЫЙ УК СЕЙЧАС ~ ${String.format(Locale.US, "%.1f", currentUkHint)}. ПРИ ВВЕДЕНИИ ${xeInput.toDoubleOrNull() ?: 0.0} ХЕ СОВЕТУЕМ КОЛОТЬ ~ ${String.format(Locale.US, "%.1f", (xeInput.toDoubleOrNull() ?: 0.0) * currentUkHint)} ЕД.",
-                                fontSize = 10.sp,
-                                color = McGold,
-                                fontFamily = FontFamily.Monospace,
-                                lineHeight = 14.sp
-                            )
+                        // Hint of UK coefficient calculator
+                        if (xeInput.toDoubleOrNull() != null && selectedInsulinType == "Novorapid") {
+                            val recommendedDose = (xeInput.toDoubleOrNull() ?: 0.0) * currentUkHint
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.Black)
+                                    .padding(1.dp)
+                                    .background(Color(0xFF333333))
+                                    .padding(8.dp)
+                            ) {
+                                Text(
+                                    text = "💡 ПОДСКАЗКА: РЕКОМЕНДУЕМЫЙ УК СЕЙЧАС ~ ${String.format(Locale.US, "%.1f", currentUkHint)}. ПРИ ВВЕДЕНИИ ${xeInput} ХЕ СОВЕТУЕМ КОЛОТЬ ~ ${String.format(Locale.US, "%.1f", recommendedDose)} ЕД.",
+                                    fontSize = 10.sp,
+                                    color = McGold,
+                                    fontFamily = FontFamily.Monospace,
+                                    lineHeight = 14.sp
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // Cartridge wastage warning (Minecraft style)
+            // Cartridge Purge wastage notice
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -337,7 +251,7 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
                     .padding(8.dp)
             ) {
                 Text(
-                    text = "🔧 СБРОС РУЧКИ: ПРИ ЖЕСТКОЙ КНОПКЕ СОХРАНЕНИЯ В БАЗУ ТАКЖЕ ДОБАВЛЯЕТСЯ СПИСАНИЕ +1 ЕД ТЕХНИЧЕСКОГО СБРОСА ДЛЯ РАСХОДА КАРТРИДЖА.",
+                    text = "🔧 СБРОС РУЧКИ: ПРИ СОХРАНЕНИИ УКОЛА В БАЗУ ДЛЯ КАРТРИДЖА ТАКЖЕ АВТОМАТИЧЕСКИ СПИСЫВАЕТСЯ +1 ЕД ТЕХНИЧЕСКОГО СБРОСА.",
                     fontSize = 10.sp,
                     color = Color.LightGray,
                     fontFamily = FontFamily.Monospace,
@@ -345,69 +259,62 @@ fun FoodInputScreen(mainViewModel: MainViewModel) {
                 )
             }
 
-            // Main Save Button
+            // Save submit button
             McPixelButton(
                 text = "СОХРАНИТЬ СОБЫТИЕ",
                 onClick = {
                     val doseVal = insulinDoseInput.toDoubleOrNull() ?: 0.0
-                    val bgVal = bgInput.toDoubleOrNull() ?: 0.0
-                    val glucoVal = glucoInput.toDoubleOrNull() ?: 0.0
-                    val isStandalone = selectedEventType == "STANDALONE"
+                    val glucoVal = glucoseInput.toDoubleOrNull() ?: 0.0
+                    val xeVal = xeInput.toDoubleOrNull() ?: 0.0
+                    val pauseVal = pauseInput.toIntOrNull() ?: 0
+                    val scenarioStr = mainViewModel.getCurrentActiveScenario()
 
-                    coroutineScope.launch {
-                        // 1. If physical glucometer manual reading was submitted, save separately in Room!
-                        if (glucoVal > 0.0) {
-                            val glucoRecord = BgRecord(
-                                timestamp = System.currentTimeMillis(),
-                                bgValue = glucoVal,
-                                direction = "РУЧНОЙ",
-                                isFromXdrip = false,
-                                scenario = selectedScenario
-                            )
-                            mainViewModel.repository.insertBgRecord(glucoRecord)
-                        }
-
-                        // Determine effective pre-prandial blood glucose (prefer Glucometer over xDrip sensor)
-                        val effectiveBgBefore = if (glucoVal > 0.0) glucoVal else bgVal
-
-                        // 2. If physical food was logged
-                        if (!isStandalone) {
-                            val record = MealRecord(
-                                timestamp = System.currentTimeMillis(),
-                                foodText = foodText,
-                                xe = xeInput.toDoubleOrNull() ?: 0.0,
-                                novorapidDose = doseVal,
-                                pauseMinutes = pauseInput.toIntOrNull() ?: 0,
-                                bgBefore = effectiveBgBefore,
-                                eventType = selectedEventType, // "MEAL" or "SNACK"
-                                isBalanced = false, // analyzed inside ViewModel automatically via keywords
-                                scenario = selectedScenario
-                            )
-                            mainViewModel.repository.insertMealRecord(record)
-                        }
-
-                        // 3. If insulin logged
-                        if (doseVal > 0.0 || isStandalone) {
-                            val insType = if (isStandalone) selectedInsulinTypeForStandalone else "Novorapid"
-                            
-                            val record = InsulinRecord(
-                                timestamp = System.currentTimeMillis(),
-                                insulinType = insType,
-                                dose = doseVal,
-                                primeDose = 1.0, // Obligatory 1 unit mechanical wastage cartridge prime
-                                scenario = selectedScenario
-                            )
-                            mainViewModel.repository.insertInsulinRecord(record)
-                        }
-
-                        // Clear all forms inputs
-                        foodText = ""
-                        xeInput = ""
-                        pauseInput = ""
-                        insulinDoseInput = ""
-                        bgInput = ""
-                        glucoInput = ""
+                    // 1. Save glucose manual entry
+                    if (glucoVal > 0.0) {
+                        val record = BgRecord(
+                            timestamp = System.currentTimeMillis(),
+                            bgValue = glucoVal,
+                            direction = "РУЧНОЙ",
+                            isFromXdrip = false,
+                            scenario = scenarioStr
+                        )
+                        mainViewModel.insertBgRecord(record)
                     }
+
+                    // 2. Save meal intake
+                    if (foodText.isNotBlank() || xeVal > 0.0) {
+                        val record = MealRecord(
+                            timestamp = System.currentTimeMillis(),
+                            foodText = foodText,
+                            xe = xeVal,
+                            novorapidDose = if (selectedInsulinType == "Novorapid") doseVal else 0.0,
+                            pauseMinutes = pauseVal,
+                            bgBefore = glucoVal,
+                            eventType = selectedEventType,
+                            isBalanced = false, // Auto calculated in stats view
+                            scenario = scenarioStr
+                        )
+                        mainViewModel.insertMealRecord(record)
+                    }
+
+                    // 3. Save standalone or related insulin uloc injection
+                    if (doseVal > 0.0) {
+                        val record = InsulinRecord(
+                            timestamp = System.currentTimeMillis(),
+                            insulinType = selectedInsulinType,
+                            dose = doseVal,
+                            primeDose = 1.0, // Every injection causes mechanical purge wastage of 1.0 Units
+                            scenario = scenarioStr
+                        )
+                        mainViewModel.insertInsulinRecord(record)
+                    }
+
+                    // Clear fields
+                    glucoseInput = ""
+                    foodText = ""
+                    xeInput = ""
+                    pauseInput = ""
+                    insulinDoseInput = ""
                 },
                 backgroundColor = McGrass,
                 modifier = Modifier.fillMaxWidth()
@@ -428,7 +335,7 @@ fun McTextFieldMinecraft(
 ) {
     Column {
         Text(
-            text = label,
+            text = label.uppercase(),
             fontSize = 9.sp,
             color = Color.LightGray,
             fontFamily = FontFamily.Monospace,
